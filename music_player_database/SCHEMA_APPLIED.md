@@ -28,10 +28,15 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
 ```
 
 4. Songs table:
+
+Note (no-auth mode):
+- Songs are **global/public**; they are not required to be owned by a user.
+- `songs.user_id` is therefore **nullable** (may be NULL). If present, it can still reference `users(id)`.
+
 ```sql
 CREATE TABLE IF NOT EXISTS songs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  user_id UUID NULL REFERENCES users(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   artist TEXT NOT NULL,
   filename TEXT NOT NULL,
@@ -48,6 +53,14 @@ CREATE INDEX IF NOT EXISTS idx_songs_user_id ON songs (user_id);
 CREATE INDEX IF NOT EXISTS idx_songs_created_at ON songs (created_at);
 ```
 
+## No-auth migration (applied)
+
+If your database was previously created with `songs.user_id NOT NULL`, migrate it to no-auth mode by executing this **single statement** (one `-c` call):
+
+```sql
+ALTER TABLE songs ALTER COLUMN user_id DROP NOT NULL;
+```
+
 ## Re-applying manually (example)
 
 From `music_player_database/`:
@@ -56,4 +69,6 @@ From `music_player_database/`:
 CONN=$(head -n 1 db_connection.txt | tr -d '\r\n')
 $CONN -v ON_ERROR_STOP=1 -c "CREATE EXTENSION IF NOT EXISTS pgcrypto"
 # ...repeat with one -c per SQL statement...
+# if migrating an existing DB to no-auth mode:
+$CONN -v ON_ERROR_STOP=1 -c "ALTER TABLE songs ALTER COLUMN user_id DROP NOT NULL"
 ```
